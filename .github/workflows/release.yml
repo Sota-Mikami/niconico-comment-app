@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build & package
+        run: npm run dist
+
+      - name: Upload dmg (arm64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg-arm64
+          path: dist/*-arm64.dmg
+
+      - name: Upload dmg (x64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg-x64
+          path: |
+            dist/*.dmg
+            !dist/*-arm64.dmg
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.dmg
+          generate_release_notes: false
+          body: |
+            ## ダウンロード
+
+            | ファイル | 対象 Mac |
+            |---|---|
+            | `*-arm64.dmg` | Apple Silicon (M1 / M2 / M3) |
+            | `*.dmg` (arm64 なし) | Intel Mac |
+
+            ### インストール方法
+            1. `.dmg` をダブルクリックで開く
+            2. `コメントアプリ` を `Applications` へドラッグ
+            3. 初回のみ: 右クリック → 開く → ダイアログで「開く」
+
+            詳細は [README](https://github.com/Sota-Mikami/niconico-comment-app#readme) を参照してください。
