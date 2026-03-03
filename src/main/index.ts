@@ -6,7 +6,7 @@ import { WebClient } from '@slack/web-api'
 import { loadSettings, saveSettings } from './settings'
 import type { Settings } from './settings'
 
-// .envをロード（開発時はプロジェクトルート、本番時はappPath配下）
+// .envをロード（開発時はプロジェクトルート、本番時は userData 配下も試みる）
 dotenv.config({ path: join(__dirname, '../../.env') })
 dotenv.config({ path: join(process.cwd(), '.env') })
 
@@ -15,13 +15,23 @@ let settingsWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let currentSlackApp: InstanceType<typeof SlackApp> | null = null
 let webClient: WebClient | null = null
-let currentSettings: Settings = { channelIds: [], displayIndex: 0, commentsEnabled: true, speed: 180, fontSize: 36, opacity: 1.0 }
+let currentSettings: Settings = { channelIds: [], displayIndex: 0, commentsEnabled: true, speed: 180, fontSize: 36, opacity: 1.0, botToken: '', appToken: '' }
 let demoModeActive = false
 
+/** settings または .env からトークンを取得（settings 優先） */
+function getTokens(): { botToken: string | undefined; appToken: string | undefined } {
+  return {
+    botToken: currentSettings.botToken || process.env.SLACK_BOT_TOKEN || undefined,
+    appToken: currentSettings.appToken || process.env.SLACK_APP_TOKEN || undefined
+  }
+}
+
 function initWebClient(): void {
-  const botToken = process.env.SLACK_BOT_TOKEN
+  const { botToken } = getTokens()
   if (botToken && !botToken.startsWith('xoxb-your')) {
     webClient = new WebClient(botToken)
+  } else {
+    webClient = null
   }
 }
 
@@ -89,7 +99,7 @@ function createSettingsWindow(): void {
 
   settingsWindow = new BrowserWindow({
     width: 480,
-    height: 740,
+    height: 880,
     resizable: false,
     title: 'コメントアプリ 設定',
     webPreferences: {
@@ -186,16 +196,15 @@ async function startSlack(channelIds: string[]): Promise<void> {
     return
   }
 
-  const botToken = process.env.SLACK_BOT_TOKEN
-  const appToken = process.env.SLACK_APP_TOKEN
+  const { botToken, appToken } = getTokens()
 
   if (!botToken || !appToken) {
-    console.log('[Slack] トークンが未設定です。.envを確認してください。')
+    console.log('[Slack] トークンが未設定です。設定UIまたは.envにトークンを入力してください。')
     return
   }
 
   if (botToken.startsWith('xoxb-your') || appToken.startsWith('xapp-your')) {
-    console.log('[Slack] .envにスタブ値が設定されています。実際のトークンを設定してください。')
+    console.log('[Slack] スタブ値が設定されています。実際のトークンを入力してください。')
     return
   }
 
@@ -276,6 +285,9 @@ function setupIpcHandlers(): void {
     const channelIdsChanged =
       JSON.stringify(newSettings.channelIds) !== JSON.stringify(currentSettings.channelIds)
     const displayChanged = newSettings.displayIndex !== currentSettings.displayIndex
+    const tokenChanged =
+      newSettings.botToken !== currentSettings.botToken ||
+      newSettings.appToken !== currentSettings.appToken
 
     saveSettings(newSettings)
     currentSettings = newSettings
@@ -285,7 +297,11 @@ function setupIpcHandlers(): void {
       mainWindow.setBounds(bounds)
     }
 
-    if (channelIdsChanged) {
+    if (tokenChanged) {
+      initWebClient()
+    }
+
+    if (channelIdsChanged || tokenChanged) {
       await startSlack(newSettings.channelIds)
     }
 

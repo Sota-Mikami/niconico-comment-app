@@ -513,3 +513,51 @@ body {
   margin-left: 1px;
 }
 
+/* ── Slack トークン入力 ──────────────── */
+.token-field {
+  margin-bottom: 12px;
+}
+
+.token-field:last-of-type {
+  margin-bottom: 0;
+}
+
+.token-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #1c1c1e;
+  margin-bottom: 4px;
+}
+
+.token-label-sub {
+  font-size: 10px;
+  font-weight: 400;
+  color: #8e8e93;
+  font-family: 'Menlo', 'Monaco', monospace;
+}
+
+.token-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #c6c6c8;
+  border-radius: 8px;
+  font-size: 12px;
+  font-family: 'Menlo', 'Monaco', monospace;
+  background: #ffffff;
+  color: #1c1c1e;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.token-input:focus {
+  border-color: #007aff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+}
+
+.token-input::placeholder {
+  font-size: 10px;
+  color: #c6c6c8;
+}
+

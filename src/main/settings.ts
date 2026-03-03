@@ -9,6 +9,8 @@ export interface Settings {
   speed: number
   fontSize: number
   opacity: number
+  botToken: string   // xoxb-... (空なら .env の SLACK_BOT_TOKEN を使用)
+  appToken: string   // xapp-... (空なら .env の SLACK_APP_TOKEN を使用)
 }
 
 const SETTINGS_PATH = join(app.getPath('userData'), 'settings.json')
@@ -19,7 +21,9 @@ const DEFAULT_SETTINGS: Settings = {
   commentsEnabled: true,
   speed: 180,
   fontSize: 36,
-  opacity: 1.0
+  opacity: 1.0,
+  botToken: '',
+  appToken: ''
 }
 
 export function loadSettings(): Settings {
@@ -33,7 +37,9 @@ export function loadSettings(): Settings {
         commentsEnabled: typeof parsed.commentsEnabled === 'boolean' ? parsed.commentsEnabled : true,
         speed: typeof parsed.speed === 'number' ? parsed.speed : 180,
         fontSize: typeof parsed.fontSize === 'number' ? parsed.fontSize : 36,
-        opacity: typeof parsed.opacity === 'number' ? parsed.opacity : 1.0
+        opacity: typeof parsed.opacity === 'number' ? parsed.opacity : 1.0,
+        botToken: typeof parsed.botToken === 'string' ? parsed.botToken : '',
+        appToken: typeof parsed.appToken === 'string' ? parsed.appToken : ''
       }
     }
   } catch (e) {
@@ -43,7 +49,7 @@ export function loadSettings(): Settings {
   // .env の SLACK_CHANNEL_ID が設定されていれば移行
   const envChannelId = process.env.SLACK_CHANNEL_ID
   if (envChannelId) {
-    const migrated: Settings = { channelIds: [envChannelId], displayIndex: 0, commentsEnabled: true, speed: 180, fontSize: 36, opacity: 1.0 }
+    const migrated: Settings = { channelIds: [envChannelId], displayIndex: 0, commentsEnabled: true, speed: 180, fontSize: 36, opacity: 1.0, botToken: '', appToken: '' }
     saveSettings(migrated)
     return migrated
   }

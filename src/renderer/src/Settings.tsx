@@ -19,6 +19,8 @@ interface Settings {
   speed: number
   fontSize: number
   opacity: number
+  botToken: string
+  appToken: string
 }
 
 declare global {
@@ -122,6 +124,10 @@ export default function Settings(): JSX.Element {
   const [displayIndex, setDisplayIndex] = useState(0)
   const [displays, setDisplays] = useState<DisplayInfo[]>([])
 
+  // --- Slack 接続設定 ---
+  const [botToken, setBotToken] = useState('')
+  const [appToken, setAppToken] = useState('')
+
   // --- オーバーレイ設定 ---
   const [commentsEnabled, setCommentsEnabled] = useState(true)
   const [demoMode, setDemoMode] = useState(false)
@@ -159,6 +165,8 @@ export default function Settings(): JSX.Element {
       setFontSize(s.fontSize ?? 36)
       setOpacity(s.opacity ?? 1.0)
       setDemoMode(s.demoModeActive ?? false)
+      setBotToken(s.botToken ?? '')
+      setAppToken(s.appToken ?? '')
       settingsLoadedRef.current = true
     })
     window.settingsApi.getDisplays().then(setDisplays)
@@ -189,12 +197,14 @@ export default function Settings(): JSX.Element {
         commentsEnabled,
         speed,
         fontSize,
-        opacity
+        opacity,
+        botToken,
+        appToken
       })
       setSaveStatus('saved')
       feedbackTimerRef.current = setTimeout(() => setSaveStatus('idle'), 2000)
     }, 400)
-  }, [channelIds, displayIndex, commentsEnabled, speed, fontSize, opacity])
+  }, [channelIds, displayIndex, commentsEnabled, speed, fontSize, opacity, botToken, appToken])
 
   // オーバーレイ設定が変わるたびに即時反映
   useEffect(() => {
@@ -500,6 +510,44 @@ export default function Settings(): JSX.Element {
           <span className="slider-hint">濃</span>
           <span className="slider-value">{Math.round(opacity * 100)}<span className="slider-unit">%</span></span>
         </div>
+      </section>
+
+      {/* ── Slack 接続設定 ─────────────────────── */}
+      <section className="settings-section">
+        <h2 className="settings-section-title">Slack 接続設定</h2>
+        <p className="settings-hint">
+          Slack App のトークンを入力してください。空欄の場合は <code>.env</code> の値を使用します。
+        </p>
+
+        <div className="token-field">
+          <label className="token-label">Bot Token <span className="token-label-sub">(xoxb-...)</span></label>
+          <input
+            className="token-input"
+            type="password"
+            placeholder="xoxb-xxxxxxxxxxxx-xxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxx"
+            value={botToken}
+            onChange={(e) => setBotToken(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+
+        <div className="token-field">
+          <label className="token-label">App-Level Token <span className="token-label-sub">(xapp-...)</span></label>
+          <input
+            className="token-input"
+            type="password"
+            placeholder="xapp-1-xxxxxxxxxxxx-xxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxx"
+            value={appToken}
+            onChange={(e) => setAppToken(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+
+        <p className="settings-hint" style={{ marginTop: 8 }}>
+          変更後は自動的に保存・再接続されます
+        </p>
       </section>
     </div>
   )
