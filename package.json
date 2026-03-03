@@ -41,6 +41,7 @@
     },
     "dmg": {
       "title": "コメントアプリ インストーラー",
+      "artifactName": "niconico-comment-slack-app-${version}-${arch}.dmg",
       "window": {
         "width": 540,
         "height": 380

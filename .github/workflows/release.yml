@@ -37,9 +37,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dmg-x64
-          path: |
-            dist/*.dmg
-            !dist/*-arm64.dmg
+          path: dist/*-x64.dmg
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -60,6 +58,9 @@ jobs:
             ### インストール方法
             1. `.dmg` をダブルクリックで開く
             2. `コメントアプリ` を `Applications` へドラッグ
-            3. 初回のみ: 右クリック → 開く → ダイアログで「開く」
+            3. ターミナルで以下を実行（初回のみ）:
+               ```
+               xattr -cr /Applications/コメントアプリ.app
+               ```
 
             詳細は [README](https://github.com/Sota-Mikami/niconico-comment-app#readme) を参照してください。
