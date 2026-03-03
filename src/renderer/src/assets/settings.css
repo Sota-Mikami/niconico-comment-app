@@ -1,0 +1,339 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 13px;
+  color: #1c1c1e;
+  background: #f2f2f7;
+  -webkit-font-smoothing: antialiased;
+}
+
+.settings-root {
+  display: flex;
+  flex-direction: column;
+  padding: 24px 20px 20px;
+  min-height: 100vh;
+}
+
+.settings-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1c1c1e;
+  margin-bottom: 20px;
+  letter-spacing: -0.2px;
+}
+
+/* セクション */
+.settings-section {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.settings-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1c1c1e;
+  margin-bottom: 6px;
+}
+
+.settings-hint {
+  font-size: 11px;
+  color: #8e8e93;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.settings-error {
+  font-size: 11px;
+  color: #ff3b30;
+  margin-bottom: 10px;
+  line-height: 1.5;
+  background: rgba(255, 59, 48, 0.06);
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+/* ── チャンネル検索 ───────────────── */
+.channel-search-wrap {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.channel-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid #c6c6c8;
+  border-radius: 8px;
+  font-size: 13px;
+  background: #ffffff;
+  color: #1c1c1e;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.channel-input:focus {
+  border-color: #007aff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+}
+
+/* サジェストドロップダウン */
+.channel-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.14);
+  z-index: 100;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.channel-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.channel-suggestion-item:hover:not(.already-added) {
+  background: #f2f2f7;
+}
+
+.channel-suggestion-item.already-added {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.channel-suggestion-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1c1c1e;
+  flex: 1;
+}
+
+.channel-suggestion-id {
+  font-size: 11px;
+  color: #8e8e93;
+  font-family: 'Menlo', 'Monaco', monospace;
+}
+
+.channel-suggestion-badge {
+  font-size: 10px;
+  color: #34c759;
+  font-weight: 600;
+  background: rgba(52, 199, 89, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* フォールバックリンク */
+.btn-fallback {
+  display: inline-block;
+  border: none;
+  background: transparent;
+  color: #007aff;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 8px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* 手動入力行 */
+.channel-input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.btn-add {
+  height: 32px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: #007aff;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.btn-add:hover { background: #0062cc; }
+.btn-add:active { background: #004999; }
+
+/* チャンネルリスト */
+.channel-empty {
+  font-size: 12px;
+  color: #aeaeb2;
+  text-align: center;
+  padding: 10px 0;
+}
+
+.channel-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.channel-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  background: #f2f2f7;
+  border-radius: 8px;
+}
+
+.channel-name-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.channel-name-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1c1c1e;
+}
+
+.channel-id-sub {
+  font-family: 'Menlo', 'Monaco', monospace;
+  font-size: 10px;
+  color: #8e8e93;
+}
+
+.channel-id {
+  font-family: 'Menlo', 'Monaco', monospace;
+  font-size: 12px;
+  color: #3a3a3c;
+}
+
+.btn-remove {
+  border: none;
+  background: transparent;
+  color: #ff3b30;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.btn-remove:hover { background: rgba(255, 59, 48, 0.1); }
+
+/* ── ディスプレイマップ ──────────────── */
+.display-map-empty {
+  font-size: 12px;
+  color: #aeaeb2;
+  padding: 16px 0;
+  text-align: center;
+}
+
+.display-map {
+  background: #f2f2f7;
+  border-radius: 8px;
+  overflow: visible;
+  margin-bottom: 8px;
+}
+
+.display-rect {
+  border: 2px solid #c6c6c8;
+  border-radius: 4px;
+  background: #e5e5ea;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  user-select: none;
+  gap: 2px;
+}
+
+.display-rect:hover:not(.selected) {
+  border-color: #8e8e93;
+  background: #d8d8dc;
+}
+
+.display-rect.selected {
+  border-color: #007aff;
+  background: #cce4ff;
+}
+
+.display-rect-num {
+  font-size: 16px;
+  font-weight: 700;
+  color: #3a3a3c;
+  line-height: 1;
+}
+
+.display-rect.selected .display-rect-num {
+  color: #007aff;
+}
+
+.display-rect-primary {
+  font-size: 9px;
+  font-weight: 600;
+  color: #8e8e93;
+  background: rgba(0, 0, 0, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+
+.display-rect.selected .display-rect-primary {
+  color: #007aff;
+  background: rgba(0, 122, 255, 0.1);
+}
+
+.display-selected-label {
+  font-size: 12px;
+  color: #8e8e93;
+  text-align: center;
+}
+
+/* ── フッター・保存ボタン ─────────────── */
+.settings-footer {
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.btn-save {
+  width: 100%;
+  height: 38px;
+  border: none;
+  border-radius: 10px;
+  background: #007aff;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-save:hover { background: #0062cc; }
+.btn-save:active { background: #004999; }
+
+.btn-saved {
+  background: #34c759;
+  pointer-events: none;
+}

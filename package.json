@@ -1,0 +1,32 @@
+{
+  "name": "niconico-comment-app",
+  "version": "1.0.0",
+  "description": "ニコニコ動画風Slackコメント表示アプリ",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "env -u ELECTRON_RUN_AS_NODE electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@electron-toolkit/tsconfig": "^1.0.1",
+    "@types/react": "^18.2.55",
+    "@types/react-dom": "^18.2.19",
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^29.1.0",
+    "electron-vite": "^2.0.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.3"
+  },
+  "dependencies": {
+    "@electron-toolkit/preload": "^3.0.0",
+    "@electron-toolkit/utils": "^3.0.0",
+    "@slack/bolt": "^4.6.0",
+    "dotenv": "^17.3.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}
