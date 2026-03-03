@@ -35,7 +35,9 @@ const api = {
     }
   },
   // マウント後に main プロセスへ初期 overlay-state を要求する
-  requestOverlayState: (): Promise<void> => ipcRenderer.invoke('request-overlay-state')
+  requestOverlayState: (): Promise<void> => ipcRenderer.invoke('request-overlay-state'),
+  // カスタム絵文字マップを取得する
+  getEmojiMap: (): Promise<Record<string, string>> => ipcRenderer.invoke('get-emoji-map')
 }
 
 if (process.contextIsolated) {

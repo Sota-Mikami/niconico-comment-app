@@ -17,6 +17,7 @@ let currentSlackApp: InstanceType<typeof SlackApp> | null = null
 let webClient: WebClient | null = null
 let currentSettings: Settings = { channelIds: [], displayIndex: 0, commentsEnabled: true, speed: 180, fontSize: 36, opacity: 1.0, botToken: '', appToken: '' }
 let demoModeActive = false
+let emojiMap: Record<string, string> = {}
 
 /** settings または .env からトークンを取得（settings 優先） */
 function getTokens(): { botToken: string | undefined; appToken: string | undefined } {
@@ -32,6 +33,35 @@ function initWebClient(): void {
     webClient = new WebClient(botToken)
   } else {
     webClient = null
+  }
+}
+
+async function fetchEmojiMap(): Promise<void> {
+  if (!webClient) return
+  try {
+    const result = await webClient.emoji.list()
+    const raw = result.emoji as Record<string, string> | undefined
+    if (!raw) return
+
+    // 非エイリアスを先に登録
+    const resolved: Record<string, string> = {}
+    for (const [name, value] of Object.entries(raw)) {
+      if (!value.startsWith('alias:')) {
+        resolved[name] = value
+      }
+    }
+    // エイリアスを解決して登録
+    for (const [name, value] of Object.entries(raw)) {
+      if (value.startsWith('alias:')) {
+        const target = value.slice('alias:'.length)
+        if (resolved[target]) resolved[name] = resolved[target]
+      }
+    }
+
+    emojiMap = resolved
+    console.log(`[Slack] Emoji map loaded: ${Object.keys(resolved).length} custom emojis`)
+  } catch (e) {
+    console.error('[Slack] Emoji map fetch error:', e)
   }
 }
 
@@ -135,6 +165,7 @@ async function restartApp(): Promise<void> {
     // ウィンドウは触らず、設定再読み込み + Slack 再接続のみ行う
     currentSettings = loadSettings()
     initWebClient()
+    await fetchEmojiMap()
     await startSlack(currentSettings.channelIds)
     sendOverlayState()
     // 設定ウィンドウが開いていれば再読み込み
@@ -299,6 +330,7 @@ function setupIpcHandlers(): void {
 
     if (tokenChanged) {
       initWebClient()
+      await fetchEmojiMap()
     }
 
     if (channelIdsChanged || tokenChanged) {
@@ -326,6 +358,8 @@ function setupIpcHandlers(): void {
     sendOverlayState()
   })
 
+  ipcMain.handle('get-emoji-map', () => emojiMap)
+
   ipcMain.on('close-settings-window', () => {
     if (settingsWindow && !settingsWindow.isDestroyed()) {
       settingsWindow.close()
@@ -337,6 +371,7 @@ app.whenReady().then(async () => {
   currentSettings = loadSettings()
   initWebClient()
   setupIpcHandlers()
+  await fetchEmojiMap()
   createWindow()
   setupTray()
   await startSlack(currentSettings.channelIds)

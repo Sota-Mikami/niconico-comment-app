@@ -26,6 +26,7 @@ declare global {
       onComment: (callback: (text: string) => void) => () => void
       onOverlayState: (callback: (state: OverlayState) => void) => () => void
       requestOverlayState: () => Promise<void>
+      getEmojiMap: () => Promise<Record<string, string>>
     }
     settingsApi: {
       getSettings: () => Promise<Settings & { demoModeActive: boolean }>
