@@ -1,5 +1,6 @@
-import { app, BrowserWindow, screen, ipcMain, Tray, nativeImage, Menu } from 'electron'
+import { app, BrowserWindow, screen, ipcMain, Tray, nativeImage, Menu, dialog, shell } from 'electron'
 import { join } from 'path'
+import https from 'https'
 import * as dotenv from 'dotenv'
 import { App as SlackApp } from '@slack/bolt'
 import { WebClient } from '@slack/web-api'
@@ -33,6 +34,67 @@ function initWebClient(): void {
     webClient = new WebClient(botToken)
   } else {
     webClient = null
+  }
+}
+
+const GITHUB_REPO = 'Sota-Mikami/niconico-comment-app'
+
+function isNewerVersion(latest: string, current: string): boolean {
+  const toNums = (v: string) => v.replace(/^v/, '').split('.').map(Number)
+  const [lMaj, lMin, lPatch] = toNums(latest)
+  const [cMaj, cMin, cPatch] = toNums(current)
+  if (lMaj !== cMaj) return lMaj > cMaj
+  if (lMin !== cMin) return lMin > cMin
+  return lPatch > cPatch
+}
+
+async function checkForUpdates(silent = false): Promise<void> {
+  try {
+    const body = await new Promise<string>((resolve, reject) => {
+      https.get(
+        `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`,
+        { headers: { 'User-Agent': 'niconico-comment-app' } },
+        (res) => {
+          let data = ''
+          res.on('data', (chunk) => (data += chunk))
+          res.on('end', () => resolve(data))
+        }
+      ).on('error', reject)
+    })
+
+    const release = JSON.parse(body) as { tag_name: string; html_url: string }
+    const latestTag = release.tag_name          // "v1.2.0"
+    const current = app.getVersion()            // "1.2.0"
+
+    if (isNewerVersion(latestTag, current)) {
+      const { response } = await dialog.showMessageBox({
+        type: 'info',
+        title: 'アップデートがあります',
+        message: `新しいバージョン ${latestTag} が利用可能です`,
+        detail: `現在: v${current} → 最新: ${latestTag}\nGitHub からダウンロードしてください。`,
+        buttons: ['GitHub を開く', '後で'],
+        defaultId: 0
+      })
+      if (response === 0) shell.openExternal(release.html_url)
+    } else if (!silent) {
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'アップデートの確認',
+        message: `最新バージョン（v${current}）をお使いです`,
+        buttons: ['OK']
+      })
+    }
+  } catch (e) {
+    console.error('[Update] チェック失敗:', e)
+    if (!silent) {
+      dialog.showMessageBox({
+        type: 'warning',
+        title: 'アップデートの確認',
+        message: 'バージョン確認に失敗しました',
+        detail: 'ネットワーク接続を確認してください。',
+        buttons: ['OK']
+      })
+    }
   }
 }
 
@@ -190,6 +252,10 @@ function setupTray(): void {
       click: () => createSettingsWindow()
     },
     { type: 'separator' },
+    {
+      label: 'アップデートを確認',
+      click: () => checkForUpdates(false)
+    },
     {
       label: '再起動',
       click: () => restartApp()
@@ -375,6 +441,9 @@ app.whenReady().then(async () => {
   createWindow()
   setupTray()
   await startSlack(currentSettings.channelIds)
+
+  // 起動から5秒後にバックグラウンドでアップデートチェック（最新なら何も表示しない）
+  setTimeout(() => checkForUpdates(true), 5000)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
