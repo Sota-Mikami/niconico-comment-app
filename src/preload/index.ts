@@ -7,13 +7,35 @@ ipcRenderer.on('slack-comment', (_event, text: string) => {
   if (currentCallback) currentCallback(text)
 })
 
+export type OverlayState = {
+  commentsEnabled: boolean
+  demoMode: boolean
+  speed: number
+  fontSize: number
+  opacity: number
+}
+
+let currentOverlayCallback: ((state: OverlayState) => void) | null = null
+
+ipcRenderer.on('overlay-state', (_event, state: OverlayState) => {
+  if (currentOverlayCallback) currentOverlayCallback(state)
+})
+
 const api = {
   onComment: (callback: (text: string) => void) => {
     currentCallback = callback
     return () => {
       currentCallback = null
     }
-  }
+  },
+  onOverlayState: (callback: (state: OverlayState) => void) => {
+    currentOverlayCallback = callback
+    return () => {
+      currentOverlayCallback = null
+    }
+  },
+  // マウント後に main プロセスへ初期 overlay-state を要求する
+  requestOverlayState: (): Promise<void> => ipcRenderer.invoke('request-overlay-state')
 }
 
 if (process.contextIsolated) {

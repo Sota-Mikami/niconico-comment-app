@@ -12,16 +12,28 @@ interface ChannelInfo {
   name: string
 }
 
+interface OverlayState {
+  commentsEnabled: boolean
+  demoMode: boolean
+  speed: number
+  fontSize: number
+  opacity: number
+}
+
 declare global {
   interface Window {
     api: {
       onComment: (callback: (text: string) => void) => () => void
+      onOverlayState: (callback: (state: OverlayState) => void) => () => void
+      requestOverlayState: () => Promise<void>
     }
     settingsApi: {
-      getSettings: () => Promise<Settings>
+      getSettings: () => Promise<Settings & { demoModeActive: boolean }>
       saveSettings: (s: Settings) => Promise<void>
       getDisplays: () => Promise<DisplayInfo[]>
       getAllChannels: () => Promise<{ channels: ChannelInfo[]; error?: string }>
+      setDemoMode: (active: boolean) => Promise<void>
+      previewOverlayState: (state: { commentsEnabled: boolean; speed: number; fontSize: number; opacity: number }) => Promise<void>
       closeWindow: () => void
     }
   }

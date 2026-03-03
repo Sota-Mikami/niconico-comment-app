@@ -5,13 +5,21 @@ import { readFileSync, writeFileSync, existsSync } from 'fs'
 export interface Settings {
   channelIds: string[]
   displayIndex: number
+  commentsEnabled: boolean
+  speed: number
+  fontSize: number
+  opacity: number
 }
 
 const SETTINGS_PATH = join(app.getPath('userData'), 'settings.json')
 
 const DEFAULT_SETTINGS: Settings = {
   channelIds: [],
-  displayIndex: 0
+  displayIndex: 0,
+  commentsEnabled: true,
+  speed: 180,
+  fontSize: 36,
+  opacity: 1.0
 }
 
 export function loadSettings(): Settings {
@@ -21,7 +29,11 @@ export function loadSettings(): Settings {
       const parsed = JSON.parse(raw) as Partial<Settings>
       return {
         channelIds: Array.isArray(parsed.channelIds) ? parsed.channelIds : DEFAULT_SETTINGS.channelIds,
-        displayIndex: typeof parsed.displayIndex === 'number' ? parsed.displayIndex : DEFAULT_SETTINGS.displayIndex
+        displayIndex: typeof parsed.displayIndex === 'number' ? parsed.displayIndex : DEFAULT_SETTINGS.displayIndex,
+        commentsEnabled: typeof parsed.commentsEnabled === 'boolean' ? parsed.commentsEnabled : true,
+        speed: typeof parsed.speed === 'number' ? parsed.speed : 180,
+        fontSize: typeof parsed.fontSize === 'number' ? parsed.fontSize : 36,
+        opacity: typeof parsed.opacity === 'number' ? parsed.opacity : 1.0
       }
     }
   } catch (e) {
@@ -31,7 +43,7 @@ export function loadSettings(): Settings {
   // .env の SLACK_CHANNEL_ID が設定されていれば移行
   const envChannelId = process.env.SLACK_CHANNEL_ID
   if (envChannelId) {
-    const migrated: Settings = { channelIds: [envChannelId], displayIndex: 0 }
+    const migrated: Settings = { channelIds: [envChannelId], displayIndex: 0, commentsEnabled: true, speed: 180, fontSize: 36, opacity: 1.0 }
     saveSettings(migrated)
     return migrated
   }

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, ipcMain, Tray, nativeImage } from 'electron'
+import { app, BrowserWindow, screen, ipcMain, Tray, nativeImage, Menu } from 'electron'
 import { join } from 'path'
 import * as dotenv from 'dotenv'
 import { App as SlackApp } from '@slack/bolt'
@@ -15,7 +15,8 @@ let settingsWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let currentSlackApp: InstanceType<typeof SlackApp> | null = null
 let webClient: WebClient | null = null
-let currentSettings: Settings = { channelIds: [], displayIndex: 0 }
+let currentSettings: Settings = { channelIds: [], displayIndex: 0, commentsEnabled: true, speed: 180, fontSize: 36, opacity: 1.0 }
+let demoModeActive = false
 
 function initWebClient(): void {
   const botToken = process.env.SLACK_BOT_TOKEN
@@ -28,6 +29,18 @@ function getDisplayBounds(index: number): Electron.Rectangle {
   const displays = screen.getAllDisplays()
   const display = displays[index] ?? displays[0]
   return display.workArea
+}
+
+function sendOverlayState(): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('overlay-state', {
+      commentsEnabled: currentSettings.commentsEnabled,
+      demoMode: demoModeActive,
+      speed: currentSettings.speed,
+      fontSize: currentSettings.fontSize,
+      opacity: currentSettings.opacity
+    })
+  }
 }
 
 function createWindow(): void {
@@ -52,9 +65,12 @@ function createWindow(): void {
   })
 
   mainWindow.setIgnoreMouseEvents(true, { forward: true })
+  // macOS でフルスクリーンアプリの上にも表示されるよう最高レベルに設定
+  mainWindow.setAlwaysOnTop(true, 'screen-saver')
 
   mainWindow.on('ready-to-show', () => {
     mainWindow!.show()
+    sendOverlayState()
   })
 
   const rendererUrl = process.env['ELECTRON_RENDERER_URL']
@@ -73,7 +89,7 @@ function createSettingsWindow(): void {
 
   settingsWindow = new BrowserWindow({
     width: 480,
-    height: 660,
+    height: 740,
     resizable: false,
     title: 'コメントアプリ 設定',
     webPreferences: {
@@ -95,6 +111,29 @@ function createSettingsWindow(): void {
   }
 }
 
+async function restartApp(): Promise<void> {
+  if (app.isPackaged) {
+    // 本番: プロセスを完全に再起動
+    if (currentSlackApp) {
+      try { await currentSlackApp.stop() } catch (_) {}
+      currentSlackApp = null
+    }
+    app.relaunch()
+    app.exit(0)
+  } else {
+    // 開発中: electron-vite が Vite dev server を管理するため
+    // ウィンドウは触らず、設定再読み込み + Slack 再接続のみ行う
+    currentSettings = loadSettings()
+    initWebClient()
+    await startSlack(currentSettings.channelIds)
+    sendOverlayState()
+    // 設定ウィンドウが開いていれば再読み込み
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.reload()
+    }
+  }
+}
+
 function setupTray(): void {
   const iconPath = join(__dirname, '../../resources/tray-icon.png')
   const icon = nativeImage.createFromPath(iconPath)
@@ -103,6 +142,24 @@ function setupTray(): void {
   }
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon)
   tray.setToolTip('コメントアプリ 設定')
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '設定を開く',
+      click: () => createSettingsWindow()
+    },
+    { type: 'separator' },
+    {
+      label: '再起動',
+      click: () => restartApp()
+    },
+    {
+      label: '終了',
+      click: () => app.quit()
+    }
+  ])
+
+  tray.setContextMenu(contextMenu)
   tray.on('click', () => {
     createSettingsWindow()
   })
@@ -176,7 +233,7 @@ async function startSlack(channelIds: string[]): Promise<void> {
 }
 
 function setupIpcHandlers(): void {
-  ipcMain.handle('get-settings', () => currentSettings)
+  ipcMain.handle('get-settings', () => ({ ...currentSettings, demoModeActive }))
 
   ipcMain.handle('get-displays', () => {
     const primary = screen.getPrimaryDisplay()
@@ -216,15 +273,41 @@ function setupIpcHandlers(): void {
   })
 
   ipcMain.handle('save-settings', async (_event, newSettings: Settings) => {
+    const channelIdsChanged =
+      JSON.stringify(newSettings.channelIds) !== JSON.stringify(currentSettings.channelIds)
+    const displayChanged = newSettings.displayIndex !== currentSettings.displayIndex
+
     saveSettings(newSettings)
     currentSettings = newSettings
 
-    if (mainWindow && !mainWindow.isDestroyed()) {
+    if (displayChanged && mainWindow && !mainWindow.isDestroyed()) {
       const bounds = getDisplayBounds(newSettings.displayIndex)
       mainWindow.setBounds(bounds)
     }
 
-    await startSlack(newSettings.channelIds)
+    if (channelIdsChanged) {
+      await startSlack(newSettings.channelIds)
+    }
+
+    sendOverlayState()
+  })
+
+  ipcMain.handle('set-demo-mode', (_event, active: boolean) => {
+    demoModeActive = active
+    sendOverlayState()
+  })
+
+  ipcMain.handle('preview-overlay-state', (_event, state: { commentsEnabled: boolean; speed: number; fontSize: number; opacity: number }) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('overlay-state', {
+        ...state,
+        demoMode: demoModeActive
+      })
+    }
+  })
+
+  ipcMain.handle('request-overlay-state', () => {
+    sendOverlayState()
   })
 
   ipcMain.on('close-settings-window', () => {

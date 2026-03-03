@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { Settings } from '../main/settings'
 
 const settingsApi = {
-  getSettings: (): Promise<Settings> => ipcRenderer.invoke('get-settings'),
+  getSettings: (): Promise<Settings & { demoModeActive: boolean }> => ipcRenderer.invoke('get-settings'),
   saveSettings: (s: Settings): Promise<void> => ipcRenderer.invoke('save-settings', s),
   getDisplays: (): Promise<
     {
@@ -14,6 +14,9 @@ const settingsApi = {
   > => ipcRenderer.invoke('get-displays'),
   getAllChannels: (): Promise<{ channels: { id: string; name: string }[]; error?: string }> =>
     ipcRenderer.invoke('get-all-channels'),
+  setDemoMode: (active: boolean): Promise<void> => ipcRenderer.invoke('set-demo-mode', active),
+  previewOverlayState: (state: { commentsEnabled: boolean; speed: number; fontSize: number; opacity: number }): Promise<void> =>
+    ipcRenderer.invoke('preview-overlay-state', state),
   closeWindow: (): void => ipcRenderer.send('close-settings-window')
 }
 

@@ -1,25 +1,24 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import './assets/app.css'
 
 interface Comment {
   id: string
   text: string
-  lane: number
-  speed: number // px/ms
+  top: number    // px (ランダムY座標)
+  speed: number  // px/s
+  fontSize: number
 }
 
-// レーン数と行の高さ
-const LANE_HEIGHT = 60 // px
-const FONT_SIZE = 36 // px
-const ANIMATION_SPEED = 180 // px/s (基準速度)
-const SPEED_VARIANCE = 40 // px/s (ランダム幅)
-// 右端に新コメントを出す際、先行コメントと最低この距離(px)空いていること
-const MIN_GAP = 350 // px
+// フォントサイズのランダム幅: 基準値の ±25%
+const FONT_SIZE_VARIANCE = 0.25
 
-// レーンの使用状況を管理
-type LaneState = {
-  placedAt: number // 直近コメントを右端に配置した時刻 (ms)
-  placedSpeed: number // その時の速度 (px/s)
+// デフォルトのオーバーレイ設定値
+const DEFAULT_OVERLAY = {
+  commentsEnabled: true,
+  demoMode: false,
+  speed: 180,
+  fontSize: 36,
+  opacity: 1.0
 }
 
 function generateId(): string {
@@ -28,117 +27,81 @@ function generateId(): string {
 
 function App(): JSX.Element {
   const [comments, setComments] = useState<Comment[]>([])
-  const laneCount = useRef(Math.floor(window.innerHeight / LANE_HEIGHT))
-  const laneStates = useRef<LaneState[]>([])
+  const [overlayState, setOverlayState] = useState(DEFAULT_OVERLAY)
+  const overlayStateRef = useRef(DEFAULT_OVERLAY)
 
-  // レーン状態の初期化
+  // overlay-state IPC を受信して overlayState を更新
   useEffect(() => {
-    laneStates.current = Array.from({ length: laneCount.current }, () => ({
-      placedAt: 0,
-      placedSpeed: ANIMATION_SPEED
-    }))
+    if (!window.api?.onOverlayState) return
+    const cleanup = window.api.onOverlayState((state) => {
+      overlayStateRef.current = state
+      setOverlayState(state)
+    })
+    // マウント後に main へ現在の overlay state を要求（push タイミングがずれても確実に取得）
+    window.api.requestOverlayState?.()
+    return cleanup
   }, [])
 
-  // ウィンドウリサイズ時にレーン数を更新
-  useEffect(() => {
-    const handleResize = (): void => {
-      laneCount.current = Math.floor(window.innerHeight / LANE_HEIGHT)
-      laneStates.current = Array.from({ length: laneCount.current }, () => ({
-        placedAt: 0,
-        placedSpeed: ANIMATION_SPEED
-      }))
-    }
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+  // コメントを追加するハンドラ
+  const handler = useCallback((text: string): void => {
+    if (!overlayStateRef.current.commentsEnabled) return
+
+    const { speed: baseSpeed, fontSize: baseFontSize } = overlayStateRef.current
+
+    // 速度: 基準値 ± 20%
+    const speed = baseSpeed * (0.8 + Math.random() * 0.4)
+
+    // フォントサイズ: 基準値 ± 25%
+    const fontSize = Math.round(
+      baseFontSize * (1 - FONT_SIZE_VARIANCE + Math.random() * FONT_SIZE_VARIANCE * 2)
+    )
+
+    // Y座標: 画面全体からランダム（フォントサイズ分の余白を確保）
+    const maxTop = Math.max(window.innerHeight - fontSize - 8, 0)
+    const top = Math.random() * maxTop
+
+    setComments((prev) => [...prev, { id: generateId(), text, top, speed, fontSize }])
   }, [])
-
-  // 先行コメントが右端から何px離れたか計算
-  function getLaneGap(lane: LaneState): number {
-    const elapsed = (Date.now() - lane.placedAt) / 1000 // 秒
-    return elapsed * lane.placedSpeed // px
-  }
-
-  // 安全なレーンを探す
-  // 優先順位: ① 間隔が十分空いているレーン（上から順に） → ② 最も間隔が広いレーン
-  function findAvailableLane(): number {
-    let bestLane = 0
-    let maxGap = -Infinity
-
-    for (let i = 0; i < laneCount.current; i++) {
-      const gap = getLaneGap(laneStates.current[i])
-      // 十分な間隔があれば即採用（上のレーン優先）
-      if (gap >= MIN_GAP) {
-        return i
-      }
-      // 全レーンが塞がっている場合の保険: 最も間隔が広いレーン
-      if (gap > maxGap) {
-        maxGap = gap
-        bestLane = i
-      }
-    }
-    return bestLane
-  }
 
   // IPCでコメントを受信
   useEffect(() => {
-    const handler = (text: string): void => {
-      const lane = findAvailableLane()
-      const speed = ANIMATION_SPEED + (Math.random() - 0.5) * SPEED_VARIANCE
-      const id = generateId()
+    if (!window.api?.onComment) return
+    return window.api.onComment(handler)
+  }, [handler])
 
-      // このレーンの状態を更新（速度も一緒に保存）
-      laneStates.current[lane] = { placedAt: Date.now(), placedSpeed: speed }
+  // デモモード: overlayState.demoMode が true の間だけ interval を起動
+  useEffect(() => {
+    if (!overlayState.demoMode) return
+    const demoTexts = [
+      'こんにちは！',
+      'すごい！！！',
+      'なるほどね',
+      'ワロタwww',
+      'いい発表ですね',
+      '初見です',
+      'ありがとうございます',
+      '面白い！',
+      'なるほど〜',
+      'やばすぎｗｗｗ',
+      'LGTM 👍',
+      '質問あります！',
+      'めちゃくちゃいいですね',
+      '草ｗｗｗ'
+    ]
+    let i = 0
+    const interval = setInterval(() => {
+      handler(demoTexts[i % demoTexts.length])
+      i++
+    }, 1500)
+    return () => clearInterval(interval)
+  }, [overlayState.demoMode, handler])
 
-      setComments((prev) => [...prev, { id, text, lane, speed }])
-    }
-
-    // Electron環境でのIPC受信（クリーンアップ関数を保持）
-    let cleanupIpc: (() => void) | undefined
-    if (window.api?.onComment) {
-      cleanupIpc = window.api.onComment(handler)
-    }
-
-    // デモモード: URL ?demo=1 の場合のみ自動コメント（Slack接続時は不要）
-    const isDemoMode =
-      new URLSearchParams(window.location.search).get('demo') === '1'
-
-    if (isDemoMode) {
-      const demoTexts = [
-        'こんにちは！',
-        'すごい！！！',
-        'なるほどね',
-        'ワロタwww',
-        'いい発表ですね',
-        '初見です',
-        'ありがとうございます',
-        '面白い！',
-        'なるほど〜',
-        'やばすぎｗｗｗ',
-        'LGTM 👍',
-        '質問あります！',
-        'めちゃくちゃいいですね',
-        '草ｗｗｗ'
-      ]
-      let i = 0
-      const interval = setInterval(() => {
-        handler(demoTexts[i % demoTexts.length])
-        i++
-      }, 1500)
-      return () => clearInterval(interval)
-    }
-
-    return () => {
-      cleanupIpc?.()
-    }
-  }, [])
-
-  // アニメーション完了したコメントを削除
   const handleAnimationEnd = (id: string): void => {
     setComments((prev) => prev.filter((c) => c.id !== id))
   }
 
   return (
-    <div className="stage">
+    <div className="stage" style={{ opacity: overlayState.opacity }}>
       {comments.map((comment) => (
         <CommentBubble
           key={comment.id}
@@ -156,19 +119,16 @@ interface CommentBubbleProps {
 }
 
 function CommentBubble({ comment, onEnd }: CommentBubbleProps): JSX.Element {
-  const screenWidth = window.innerWidth
-  // 画面幅 + 余裕を移動距離とする
-  const distance = screenWidth + 600
+  const distance = window.innerWidth + 600
   const duration = (distance / comment.speed) * 1000 // ms
-
-  const top = comment.lane * LANE_HEIGHT + (LANE_HEIGHT - FONT_SIZE) / 2
 
   return (
     <div
       className="comment"
       style={
         {
-          top,
+          top: comment.top,
+          fontSize: comment.fontSize,
           animationDuration: `${duration}ms`,
           '--distance': `-${distance}px`
         } as React.CSSProperties

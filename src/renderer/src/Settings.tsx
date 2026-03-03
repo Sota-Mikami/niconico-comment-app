@@ -15,15 +15,21 @@ interface ChannelInfo {
 interface Settings {
   channelIds: string[]
   displayIndex: number
+  commentsEnabled: boolean
+  speed: number
+  fontSize: number
+  opacity: number
 }
 
 declare global {
   interface Window {
     settingsApi: {
-      getSettings: () => Promise<Settings>
+      getSettings: () => Promise<Settings & { demoModeActive: boolean }>
       saveSettings: (s: Settings) => Promise<void>
       getDisplays: () => Promise<DisplayInfo[]>
       getAllChannels: () => Promise<{ channels: ChannelInfo[]; error?: string }>
+      setDemoMode: (active: boolean) => Promise<void>
+      previewOverlayState: (state: { commentsEnabled: boolean; speed: number; fontSize: number; opacity: number }) => Promise<void>
       closeWindow: () => void
     }
   }
@@ -41,7 +47,6 @@ interface DisplayMapProps {
 function DisplayMap({ displays, selectedIndex, onSelect }: DisplayMapProps): JSX.Element {
   if (displays.length === 0) return <div className="display-map-empty">読み込み中...</div>
 
-  // 全体の仮想スクリーン範囲を計算
   const minX = Math.min(...displays.map((d) => d.bounds.x))
   const minY = Math.min(...displays.map((d) => d.bounds.y))
   const maxX = Math.max(...displays.map((d) => d.bounds.x + d.bounds.width))
@@ -50,11 +55,9 @@ function DisplayMap({ displays, selectedIndex, onSelect }: DisplayMapProps): JSX
   const totalW = maxX - minX
   const totalH = maxY - minY
 
-  // コンテナサイズ (CSS で固定)
   const containerW = 420
   const containerH = 120
 
-  // アスペクト比を保ちながらスケール
   const scale = Math.min(containerW / totalW, containerH / totalH) * 0.85
   const offsetX = (containerW - totalW * scale) / 2
   const offsetY = (containerH - totalH * scale) / 2
@@ -89,14 +92,50 @@ function DisplayMap({ displays, selectedIndex, onSelect }: DisplayMapProps): JSX
 }
 
 // ---------------------------------------------------------------
+// Toggle: iOS風トグルスイッチ
+// ---------------------------------------------------------------
+interface ToggleProps {
+  active: boolean
+  onChange: (active: boolean) => void
+}
+
+function Toggle({ active, onChange }: ToggleProps): JSX.Element {
+  return (
+    <button
+      className={`toggle-switch${active ? ' active' : ''}`}
+      onClick={() => onChange(!active)}
+      type="button"
+      role="switch"
+      aria-checked={active}
+    >
+      <span className="toggle-knob" />
+    </button>
+  )
+}
+
+// ---------------------------------------------------------------
 // メイン Settings コンポーネント
 // ---------------------------------------------------------------
 export default function Settings(): JSX.Element {
-  // --- 設定値 ---
+  // --- チャンネル・ディスプレイ設定 ---
   const [channelIds, setChannelIds] = useState<string[]>([])
   const [displayIndex, setDisplayIndex] = useState(0)
   const [displays, setDisplays] = useState<DisplayInfo[]>([])
-  const [saved, setSaved] = useState(false)
+
+  // --- オーバーレイ設定 ---
+  const [commentsEnabled, setCommentsEnabled] = useState(true)
+  const [demoMode, setDemoMode] = useState(false)
+  const [speed, setSpeed] = useState(180)
+  const [fontSize, setFontSize] = useState(36)
+  const [opacity, setOpacity] = useState(1.0)
+
+  // --- 自動保存フィードバック ---
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // 初回マウント時は自動保存をスキップするフラグ
+  const settingsLoadedRef = useRef(false)
 
   // --- チャンネル検索 ---
   const [allChannels, setAllChannels] = useState<ChannelInfo[]>([])
@@ -104,18 +143,23 @@ export default function Settings(): JSX.Element {
   const [channelsError, setChannelsError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const [manualMode, setManualMode] = useState(false) // フォールバック手動入力
+  const [manualMode, setManualMode] = useState(false)
   const [manualInput, setManualInput] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
-  // 追加済みチャンネルの名前キャッシュ（channelId → name）
   const channelNameMap = Object.fromEntries(allChannels.map((c) => [c.id, c.name]))
 
   useEffect(() => {
     window.settingsApi.getSettings().then((s) => {
       setChannelIds(s.channelIds)
       setDisplayIndex(s.displayIndex)
+      setCommentsEnabled(s.commentsEnabled ?? true)
+      setSpeed(s.speed ?? 180)
+      setFontSize(s.fontSize ?? 36)
+      setOpacity(s.opacity ?? 1.0)
+      setDemoMode(s.demoModeActive ?? false)
+      settingsLoadedRef.current = true
     })
     window.settingsApi.getDisplays().then(setDisplays)
     window.settingsApi.getAllChannels().then((result) => {
@@ -129,7 +173,35 @@ export default function Settings(): JSX.Element {
     })
   }, [])
 
-  // 検索候補: searchQuery でフィルタリング (最大8件)
+  // 全設定値が変わるたびに自動保存（デバウンス400ms）
+  useEffect(() => {
+    if (!settingsLoadedRef.current) return
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+
+    setSaveStatus('saving')
+
+    saveTimerRef.current = setTimeout(async () => {
+      await window.settingsApi.saveSettings({
+        channelIds,
+        displayIndex,
+        commentsEnabled,
+        speed,
+        fontSize,
+        opacity
+      })
+      setSaveStatus('saved')
+      feedbackTimerRef.current = setTimeout(() => setSaveStatus('idle'), 2000)
+    }, 400)
+  }, [channelIds, displayIndex, commentsEnabled, speed, fontSize, opacity])
+
+  // オーバーレイ設定が変わるたびに即時反映
+  useEffect(() => {
+    if (!settingsLoadedRef.current) return
+    window.settingsApi.previewOverlayState({ commentsEnabled, speed, fontSize, opacity })
+  }, [commentsEnabled, speed, fontSize, opacity])
+
   const suggestions =
     searchQuery.length >= 1
       ? allChannels
@@ -144,7 +216,6 @@ export default function Settings(): JSX.Element {
   function addChannelById(id: string, name?: string): void {
     if (!id || channelIds.includes(id)) return
     setChannelIds((prev) => [...prev, id])
-    // allChannels に未登録なら追加（手動入力ケース）
     if (name && !allChannels.find((c) => c.id === id)) {
       setAllChannels((prev) => [...prev, { id, name }])
     }
@@ -168,7 +239,6 @@ export default function Settings(): JSX.Element {
     setManualInput('')
   }
 
-  // 外側クリックでドロップダウンを閉じる
   useEffect(() => {
     function handleClickOutside(e: MouseEvent): void {
       if (
@@ -184,26 +254,42 @@ export default function Settings(): JSX.Element {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  async function handleSave(): Promise<void> {
-    await window.settingsApi.saveSettings({ channelIds, displayIndex })
-    setSaved(true)
-    setTimeout(() => {
-      window.settingsApi.closeWindow()
-    }, 600)
+  async function handleDemoToggle(active: boolean): Promise<void> {
+    setDemoMode(active)
+    await window.settingsApi.setDemoMode(active)
   }
 
   const selectedDisplayLabel = displays[displayIndex]?.label ?? ''
 
   return (
     <div className="settings-root">
-      <h1 className="settings-title">設定</h1>
+      <div className="settings-header">
+        <h1 className="settings-title">設定</h1>
+        <span className={`save-status save-status-${saveStatus}`}>
+          {saveStatus === 'saving' && '保存中…'}
+          {saveStatus === 'saved' && '保存済み ✓'}
+        </span>
+      </div>
 
       {/* ── チャンネル管理 ─────────────────────── */}
       <section className="settings-section">
         <h2 className="settings-section-title">監視チャンネル</h2>
 
         {channelsLoading && (
-          <p className="settings-hint">チャンネル一覧を読み込み中...</p>
+          <>
+            <div className="channel-loading-row">
+              <span className="spinner" />
+              <span className="channel-loading-text">Slackからチャンネル一覧を取得中…</span>
+            </div>
+            <div className="channel-search-wrap">
+              <input
+                className="channel-input channel-input-skeleton"
+                type="text"
+                placeholder="チャンネルを検索..."
+                disabled
+              />
+            </div>
+          </>
         )}
 
         {!channelsLoading && !manualMode && (
@@ -240,7 +326,7 @@ export default function Settings(): JSX.Element {
                       key={c.id}
                       className={`channel-suggestion-item${channelIds.includes(c.id) ? ' already-added' : ''}`}
                       onMouseDown={(e) => {
-                        e.preventDefault() // blur 前に fire
+                        e.preventDefault()
                         if (!channelIds.includes(c.id)) selectSuggestion(c)
                       }}
                     >
@@ -336,12 +422,85 @@ export default function Settings(): JSX.Element {
         )}
       </section>
 
-      {/* ── 保存ボタン ─────────────────────────── */}
-      <div className="settings-footer">
-        <button className={`btn-save ${saved ? 'btn-saved' : ''}`} onClick={handleSave}>
-          {saved ? '保存しました ✓' : '保存'}
-        </button>
-      </div>
+      {/* ── オーバーレイ設定 ────────────────────── */}
+      <section className="settings-section">
+        <div className="section-header-row">
+          <h2 className="settings-section-title">オーバーレイ設定</h2>
+          <button
+            className="btn-reset"
+            onClick={() => {
+              setCommentsEnabled(true)
+              setSpeed(180)
+              setFontSize(36)
+              setOpacity(1.0)
+            }}
+          >
+            デフォルトに戻す
+          </button>
+        </div>
+
+        <div className="toggle-row">
+          <span className="toggle-label">コメント表示</span>
+          <Toggle active={commentsEnabled} onChange={setCommentsEnabled} />
+        </div>
+
+        <div className="toggle-row">
+          <div>
+            <span className="toggle-label">デモモード</span>
+            <p className="settings-hint" style={{ marginBottom: 0, marginTop: 2 }}>
+              Slackなしでコメントを流してプレビュー
+            </p>
+          </div>
+          <Toggle active={demoMode} onChange={handleDemoToggle} />
+        </div>
+
+        <div className="slider-divider" />
+
+        <div className="slider-row">
+          <span className="slider-label">コメント速度</span>
+          <span className="slider-hint">遅</span>
+          <input
+            type="range"
+            min={60}
+            max={360}
+            step={10}
+            value={speed}
+            onChange={(e) => setSpeed(Number(e.target.value))}
+          />
+          <span className="slider-hint">速</span>
+          <span className="slider-value">{speed}<span className="slider-unit">px/s</span></span>
+        </div>
+
+        <div className="slider-row">
+          <span className="slider-label">フォントサイズ</span>
+          <span className="slider-hint">小</span>
+          <input
+            type="range"
+            min={20}
+            max={72}
+            step={2}
+            value={fontSize}
+            onChange={(e) => setFontSize(Number(e.target.value))}
+          />
+          <span className="slider-hint">大</span>
+          <span className="slider-value">{fontSize}<span className="slider-unit">px</span></span>
+        </div>
+
+        <div className="slider-row">
+          <span className="slider-label">不透明度</span>
+          <span className="slider-hint">淡</span>
+          <input
+            type="range"
+            min={20}
+            max={100}
+            step={5}
+            value={Math.round(opacity * 100)}
+            onChange={(e) => setOpacity(Number(e.target.value) / 100)}
+          />
+          <span className="slider-hint">濃</span>
+          <span className="slider-value">{Math.round(opacity * 100)}<span className="slider-unit">%</span></span>
+        </div>
+      </section>
     </div>
   )
 }
