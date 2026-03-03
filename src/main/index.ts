@@ -314,7 +314,8 @@ async function startSlack(channelIds: string[]): Promise<void> {
     currentSlackApp = slackApp
 
     slackApp.message(async ({ message }) => {
-      if (message.subtype) return
+      // file_share はテキストを含む場合があるので通過させる。それ以外のサブタイプはスキップ
+      if (message.subtype && message.subtype !== 'file_share') return
 
       const text = (message as { text?: string }).text
       if (!text) return
