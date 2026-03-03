@@ -14,7 +14,7 @@
   "license": "MIT",
   "build": {
     "appId": "com.mikan.niconico-comment-app",
-    "productName": "コメントアプリ",
+    "productName": "Niconico Slack Comment",
     "directories": {
       "output": "dist"
     },
@@ -40,7 +40,7 @@
       ]
     },
     "dmg": {
-      "title": "コメントアプリ インストーラー",
+      "title": "Niconico Slack Comment Installer",
       "artifactName": "niconico-comment-slack-app-${version}-${arch}.dmg",
       "window": {
         "width": 540,

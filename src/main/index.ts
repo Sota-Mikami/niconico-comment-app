@@ -101,7 +101,7 @@ function createSettingsWindow(): void {
     width: 480,
     height: 880,
     resizable: false,
-    title: 'コメントアプリ 設定',
+    title: 'Niconico Slack Comment 設定',
     webPreferences: {
       preload: join(__dirname, '../preload/settings.js'),
       sandbox: false,
@@ -151,7 +151,7 @@ function setupTray(): void {
     icon.setTemplateImage(true)
   }
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon)
-  tray.setToolTip('コメントアプリ 設定')
+  tray.setToolTip('Niconico Slack Comment')
 
   const contextMenu = Menu.buildFromTemplate([
     {

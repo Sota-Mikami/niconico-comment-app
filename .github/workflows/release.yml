@@ -57,10 +57,10 @@ jobs:
 
             ### インストール方法
             1. `.dmg` をダブルクリックで開く
-            2. `コメントアプリ` を `Applications` へドラッグ
+            2. `Niconico Slack Comment` を `Applications` へドラッグ
             3. ターミナルで以下を実行（初回のみ）:
                ```
-               xattr -cr /Applications/コメントアプリ.app
+               xattr -cr "/Applications/Niconico Slack Comment.app"
                ```
 
             詳細は [README](https://github.com/Sota-Mikami/niconico-comment-app#readme) を参照してください。
